@@ -27,12 +27,12 @@ Follow these [instructions](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-G
 
 ### Create a cluster
 ```console
-  $ bash tanzu-aws-support.sh
+  $ bash tanzu-vsphere-support.sh
 ```
 
 ### Login to workload cluster by getting the kubeconfig
 ```console
-  $ tanzu cluster kubeconfig get freshcloud --admin
+  $ tanzu cluster kubeconfig get freshcloud --namespace development --admin
 ```
 
 ### Delete existing cluster
