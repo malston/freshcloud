@@ -16,7 +16,7 @@
 
 Follow these [instructions](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/1.3/vmware-tanzu-kubernetes-grid-13/GUID-install-cli.html) to download and install the tanzu CLI bundle.
 
-On vSphere 7 and later, the vSphere with Tanzu feature includes a Supervisor Cluster that you can configure as a management cluster for Tanzu Kubernetes Grid. We assume you've already before following these instructions.
+On vSphere 7 and later, the vSphere with Tanzu feature includes a Supervisor Cluster that you can configure as a management cluster for Tanzu Kubernetes Grid, which we assume you've done already before following these instructions.
 
 Follow these [instructions](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/1.3/vmware-tanzu-kubernetes-grid-13/GUID-tanzu-k8s-clusters-connect-vsphere7.html) to use the tanzu CLI with a Supervisor cluster. This will take you through the steps to connect to the Supervisor Cluster and add it as a Management Cluster to the tanzu CLI.
 
