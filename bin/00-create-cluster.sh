@@ -11,7 +11,7 @@ die() {
 source "${__DIR}/../.env_development.sh" || die "Could not find '.env_development.sh' in root directory"
 
 if [ -z "$1" ]; then
-  echo "$0 <gcp|aws|azure|tanzu>"
+  echo "$0 <gcp|aws|azure|tanzu-aws|tanzu-vsphere>"
 fi
 
 if [ "$1" = 'gcp' ]; then
@@ -20,11 +20,14 @@ elif [ "$1" = 'aws' ]; then
   cd "${__DIR}"/../components/aws-support/ && ./aws-cloud-support.sh
 elif [ "$1" = 'azure' ]; then
   cd "${__DIR}"/../components/azure-support/ && ./azure-cloud-support.sh
-elif [ "$1" = 'tanzu' ]; then
-  cd "${__DIR}"/../components/tanzu-support/ || die "Could not cd into ../components/tanzu-support from $PWD"
+elif [ "$1" = 'tanzu-aws' ]; then
+  cd "${__DIR}"/../components/tanzu-support/ || die "Could not cd into ${__DIR}/../components/tanzu-support from $PWD"
   if [ "$2" == 'mgmt' ]; then
     ./tanzu-aws-support.sh 'mgmt'
   else
     ./tanzu-aws-support.sh
   fi
+elif [ "$1" = 'tanzu-vsphere' ]; then
+  cd "${__DIR}"/../components/tanzu-support/ || die "Could not cd into ${__DIR}/../components/tanzu-support from $PWD"
+    ./tanzu-vsphere-support.sh
 fi
