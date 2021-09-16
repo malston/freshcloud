@@ -66,13 +66,13 @@ function tanzu_login() {
   tanzu login --server "$supervisor_cluster"
 }
 
-if [ -z "$MANAGEMENT_CLUSTER_NAME" ]; then
+if [ -z "$SUPERVISOR_IP" ]; then
   printf "Please set the following environment variables in .env_development.sh under root directory:\n"
-  printf "MANAGEMENT_CLUSTER_NAME\n"
+  printf "SUPERVISOR_IP\n"
   exit 1
 fi
 
-tanzu_login "$MANAGEMENT_CLUSTER_NAME"
+tanzu_login "$SUPERVISOR_IP"
 
 temp_dir=$(mktemp -d -t cluster-XXXXXXXXXX)
 
