@@ -21,13 +21,13 @@ elif [ "$1" = 'aws' ]; then
 elif [ "$1" = 'azure' ]; then
   cd "${__DIR}"/../components/azure-support/ && ./azure-cloud-support.sh
 elif [ "$1" = 'tanzu-aws' ]; then
-  cd "${__DIR}"/../components/tanzu-support/ || die "Could not cd into ${__DIR}/../components/tanzu-support from $PWD"
+  cd "${__DIR}"/../components/tanzu-support/aws || die "Could not cd into ${__DIR}/../components/tanzu-support/aws from $PWD"
   if [ "$2" == 'mgmt' ]; then
     ./tanzu-aws-support.sh 'mgmt'
   else
     ./tanzu-aws-support.sh
   fi
 elif [ "$1" = 'tanzu-vsphere' ]; then
-  cd "${__DIR}"/../components/tanzu-support/ || die "Could not cd into ${__DIR}/../components/tanzu-support from $PWD"
+  cd "${__DIR}"/../components/tanzu-support/vsphere || die "Could not cd into ${__DIR}/../components/tanzu-support/vsphere from $PWD"
     ./tanzu-vsphere-support.sh
 fi
