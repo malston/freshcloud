@@ -61,8 +61,8 @@ STORAGE_CLASSES: $storage_class
 EOF
   tanzu cluster create "$cluster_name" --file "$temp_dir/cluster-config.yaml" --tkr="$kubernetes_version---vmware.$tkg_version" --dry-run > "$temp_dir/cluster.yaml"
   printf "Workload cluster:\n"
-  printf "\- config saved to: %s\n" "$temp_dir/cluster-config.yaml"
-  printf "\- manifest saved to: %s\n" "$temp_dir/cluster.yaml"
+  printf "%s config saved to: %s\n" "--" "$temp_dir/cluster-config.yaml"
+  printf "%s manifest saved to: %s\n" "--" "$temp_dir/cluster.yaml"
   echo y | tanzu cluster create "$cluster_name" --file "$temp_dir/cluster-config.yaml" --tkr="$kubernetes_version---vmware.$tkg_version" --log-file "$temp_dir/$cluster_name.log" -v9
   printf "Follow logs: %s\n" "$temp_dir/$cluster_name.log"
 }
