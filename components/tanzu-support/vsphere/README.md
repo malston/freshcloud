@@ -9,7 +9,8 @@
   export PASSWD='my-pass'                     # Password that will be used throughout the project
 
 # vSphere cluster Info
-  export SUPERVISOR_IP='192.168.11.129' # The IP address to connect to your supervisor cluster
+  export CONTROL_PLANE_IP=10.213.206.65                        # The supervisor cluster IP
+  export MANAGEMENT_CLUSTER_NAME="wcp.haas-402.pez.vmware.com" # The supervisor cluster name
 ```
 
 ### Install tanzu CLI

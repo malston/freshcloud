@@ -4,22 +4,31 @@
 # See https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/1.3/vmware-tanzu-kubernetes-grid-13/GUID-tanzu-k8s-clusters-connect-vsphere7.html
 
 # shellcheck disable=SC1091
-source ../../.env_development.sh
+source ../../../.env_development.sh
+
+__DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" || exit; pwd)"
+
+function die() {
+    2>&1 echo "$@"
+    exit 1
+}
 
 function tanzu_vsphere_create_k8s_cluster() {
   local temp_dir="${1:-/tmp}"
-  local cluster_name="${2:-freshcloud}"
-  local control_plane_ip="${3:-192.168.11.129}"
-  local storage_class="${4:-kubernetes-storage-policy}"
-  local kubernetes_version="${5:-1.20.7}"
-  local tkg_version="${6:-1-tkg.1.7fb9067}"
-  cat > "$temp_dir/cluster.yaml" <<EOF
+  local cluster_name="${2:-dev}"
+  local namespace="${3:-ns1}"
+  local control_plane_ip="${4:-$CONTROL_PLANE_IP}"
+  local network="${5:-"VM Network"}"
+  local storage_class="${6:-pacific-gold-storage-policy}"
+  local kubernetes_version="${7:-v1.20.9}"
+  local tkg_version="${8:-1-tkg.1.a4cee5b}"
+  cat > "$temp_dir/cluster-config.yaml" <<EOF
 CLUSTER_NAME: $cluster_name
 CLUSTER_PLAN: dev
-NAMESPACE: development
+NAMESPACE: $namespace
 CNI: antrea
 IDENTITY_MANAGEMENT_TYPE: oidc
-VSPHERE_NETWORK: VM Network
+VSPHERE_NETWORK: $network
 VSPHERE_SSH_AUTHORIZED_KEY:
 VSPHERE_USERNAME:
 VSPHERE_PASSWORD:
@@ -39,40 +48,42 @@ ENABLE_DEFAULT_STORAGE_CLASS: true
 CLUSTER_CIDR: 100.96.0.0/11
 SERVICE_CIDR: 100.64.0.0/13
 ENABLE_AUTOSCALER: false
-KUBERNETES_VERSION: "v$kubernetes_version+vmware.$tkg_version"
+KUBERNETES_VERSION: "$kubernetes_version+vmware.$tkg_version"
 SERVICE_DOMAIN: cluster.local
 DEFAULT_STORAGE_CLASS: $storage_class
 CONTROL_PLANE_VM_CLASS: best-effort-small
 CONTROL_PLANE_MACHINE_COUNT: 1
 CONTROL_PLANE_STORAGE_CLASS: $storage_class
 WORKER_VM_CLASS: best-effort-large
-WORKER_MACHINE_COUNT: 7
+WORKER_MACHINE_COUNT: 3
 WORKER_STORAGE_CLASS: $storage_class
 STORAGE_CLASSES: $storage_class
 EOF
-  tanzu cluster create "$cluster_name" --dry-run > "$temp_dir/cluster.yaml"
-  printf "Workload cluster file saved to: %s\n" "$temp_dir/cluster.yaml"
-  tanzu cluster create "$cluster_name" --file "$temp_dir/cluster.yaml" --tkr="v$kubernetes_version---vmware.$tkg_version" --log-file "$cluster_name.log" -v9 &
-  printf "Follow logs: %s\n" "$cluster_name.log"
+  tanzu cluster create "$cluster_name" --file "$temp_dir/cluster-config.yaml" --tkr="$kubernetes_version---vmware.$tkg_version" --dry-run > "$temp_dir/cluster.yaml"
+  printf "Workload cluster:\n"
+  printf "\- config saved to: %s\n" "$temp_dir/cluster-config.yaml"
+  printf "\- manifest saved to: %s\n" "$temp_dir/cluster.yaml"
+  echo y | tanzu cluster create "$cluster_name" --file "$temp_dir/cluster-config.yaml" --tkr="$kubernetes_version---vmware.$tkg_version" --log-file "$temp_dir/$cluster_name.log" -v9
+  printf "Follow logs: %s\n" "$temp_dir/$cluster_name.log"
 }
 
 function tanzu_vsphere_delete_k8s_cluster() {
-  local cluster_name=${1:-freshcloud}
+  local cluster_name=${1:-dev}
   tanzu cluster delete "$cluster_name"
 }
 
 function tanzu_login() {
   local supervisor_cluster=${1}
-  tanzu login --server "$supervisor_cluster"
+  tanzu login --kubeconfig /Users/malston/.kube/config --context "$supervisor_cluster" --name "$supervisor_cluster" &> /dev/null
 }
 
-if [ -z "$SUPERVISOR_IP" ]; then
+if [ -z "$MANAGEMENT_CLUSTER_NAME" ]; then
   printf "Please set the following environment variables in .env_development.sh under root directory:\n"
-  printf "SUPERVISOR_IP\n"
+  printf "MANAGEMENT_CLUSTER_NAME\n"
   exit 1
 fi
 
-tanzu_login "$SUPERVISOR_IP"
+tanzu_login "$MANAGEMENT_CLUSTER_NAME"
 
 temp_dir=$(mktemp -d -t cluster-XXXXXXXXXX)
 
