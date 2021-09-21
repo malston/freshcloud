@@ -4,9 +4,8 @@
 # See https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/1.3/vmware-tanzu-kubernetes-grid-13/GUID-tanzu-k8s-clusters-connect-vsphere7.html
 
 # shellcheck disable=SC1091
-source ../../../.env_development.sh
-
 __DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" || exit; pwd)"
+source "$__DIR/../../../.env_development.sh"
 
 function die() {
     2>&1 echo "$@"
@@ -61,10 +60,10 @@ STORAGE_CLASSES: $storage_class
 EOF
   tanzu cluster create "$cluster_name" --file "$temp_dir/cluster-config.yaml" --tkr="$kubernetes_version---vmware.$tkg_version" --dry-run > "$temp_dir/cluster.yaml"
   printf "Workload cluster:\n"
-  printf "%s config saved to: %s\n" "--" "$temp_dir/cluster-config.yaml"
-  printf "%s manifest saved to: %s\n" "--" "$temp_dir/cluster.yaml"
+  printf "%s tanzu cluster config saved to: %s\n" "*" "$temp_dir/cluster-config.yaml"
+  printf "%s k8s cluster manifest saved to: %s\n" "*" "$temp_dir/cluster.yaml"
+  printf "%s cli logs saved to: %s\n" "*" "$temp_dir/$cluster_name.log"
   echo y | tanzu cluster create "$cluster_name" --file "$temp_dir/cluster-config.yaml" --tkr="$kubernetes_version---vmware.$tkg_version" --log-file "$temp_dir/$cluster_name.log" -v9
-  printf "Follow logs: %s\n" "$temp_dir/$cluster_name.log"
 }
 
 function tanzu_vsphere_delete_k8s_cluster() {
