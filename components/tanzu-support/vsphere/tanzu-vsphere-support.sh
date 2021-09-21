@@ -74,7 +74,7 @@ function tanzu_vsphere_delete_k8s_cluster() {
 
 function tanzu_login() {
   local supervisor_cluster=${1}
-  tanzu login --kubeconfig /Users/malston/.kube/config --context "$supervisor_cluster" --name "$supervisor_cluster" &> /dev/null
+  tanzu login --kubeconfig "$HOME/.kube/config" --context "$supervisor_cluster" --name "$supervisor_cluster" &> /dev/null
 }
 
 if [ -z "$MANAGEMENT_CLUSTER_NAME" ]; then
