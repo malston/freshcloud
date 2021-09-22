@@ -31,24 +31,24 @@ function relocate_images() {
 }
 
 function create_tanzu_project() {
-  echo "Creating 'tanzu' project in ${PRIVATE_REGISTRY}"
-  curl --user "admin:${PASSWD}" --silent -X POST \
-      "https://${PRIVATE_REGISTRY}/api/v2.0/projects" \
-      -H "Content-type: application/json" --data \
-      '{ "project_name": "tanzu",
-      "metadata": {
-      "auto_scan": "true",
-      "enable_content_trust": "false",
-      "prevent_vul": "false",
-      "public": "true",
-      "reuse_sys_cve_whitelist": "true",
-      "severity": "high" }
-      }'
-    return $?
+    echo "Creating 'tanzu' project in ${PRIVATE_REGISTRY}"
+    curl --user "admin:${PASSWD}" --silent -X POST \
+        "https://${PRIVATE_REGISTRY}/api/v2.0/projects" \
+        -H "Content-type: application/json" --data \
+        '{ "project_name": "tanzu",
+        "metadata": {
+        "auto_scan": "true",
+        "enable_content_trust": "false",
+        "prevent_vul": "false",
+        "public": "true",
+        "reuse_sys_cve_whitelist": "true",
+        "severity": "high" }
+        }'
+      return $?
 }
 
 function create_kapp_controller() {
-  kapp deploy -a kc -f https://github.com/vmware-tanzu/carvel-kapp-controller/releases/latest/download/release.yml
+    kapp deploy -a kc -f https://github.com/vmware-tanzu/carvel-kapp-controller/releases/latest/download/release.yml
 }
 
 function create_roles() {
@@ -197,96 +197,112 @@ EOF
 }
 
 function install_build_service() {
-  create_kapp_controller
-  create_namespace build-service
-  kubectl config set-context --current --namespace build-service
-  create_roles
-  mkdir -p /tmp/bundle
-  imgpkg pull -b "${PRIVATE_REGISTRY}/tanzu/build-service:${TANZU_BUILD_SERVICE_VERSION}" -o /tmp/bundle
-  ytt -f /tmp/bundle/values.yaml \
-      -f /tmp/bundle/config/ \
-      -v docker_repository="${PRIVATE_REGISTRY}/tanzu/build-service" \
-      -v docker_username="admin" \
-      -v docker_password="${PASSWD}" \
-      -v tanzunet_username="${PIVOTAL_REGISTRY_USER}" \
-      -v tanzunet_password="${PIVOTAL_REGISTRY_PASSWORD}" \
-      | kbld -f /tmp/bundle/.imgpkg/images.yml -f- \
-      | kapp deploy -a tanzu-build-service -f- -y
-  kubectl -n build-service get TanzuNetDependencyUpdater dependency-updater -o yaml
+    create_namespace build-service
+    if ! kubectl get namespace "kapp-controller" > /dev/null 2>&1; then
+        create_kapp_controller
+    fi
+    kubectl config set-context --current --namespace build-service
+    create_roles
+    mkdir -p /tmp/bundle
+    imgpkg pull -b "${PRIVATE_REGISTRY}/tanzu/build-service:${TANZU_BUILD_SERVICE_VERSION}" -o /tmp/bundle
+    ytt -f /tmp/bundle/values.yaml \
+        -f /tmp/bundle/config/ \
+        -v docker_repository="${PRIVATE_REGISTRY}/tanzu/build-service" \
+        -v docker_username="admin" \
+        -v docker_password="${PASSWD}" \
+        -v tanzunet_username="${PIVOTAL_REGISTRY_USER}" \
+        -v tanzunet_password="${PIVOTAL_REGISTRY_PASSWORD}" \
+        | kbld -f /tmp/bundle/.imgpkg/images.yml -f- \
+        | kapp deploy -a tanzu-build-service -f- -y
+    exit $?
 }
 
 function import_build_service_dependencies() {
-  if [ ! -f "${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml" ]; then
-    mkdir -p "${__DIR}/build/k8s/build-service"
-    read -rp "Please download descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml from https://network.pivotal.io to ${__DIR}/build/k8s/build-service. Press return when finished." -n 1 -r
     if [ ! -f "${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml" ]; then
-      die "Could not find ${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml"
+      mkdir -p "${__DIR}/build/k8s/build-service"
+      read -rp "Please download descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml from https://network.pivotal.io to ${__DIR}/build/k8s/build-service. Press return when finished." -n 1 -r
+      if [ ! -f "${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml" ]; then
+        die "Could not find ${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml"
+      fi
     fi
-  fi
-  echo "Importing kpack images from ${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml"
-  kp import -f "${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml" --show-changes
+    echo "Importing kpack images from ${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml"
+    kp import -f "${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml" --show-changes
+    return $?
 }
 
 function verify() {
+    kubectl -n build-service get TanzuNetDependencyUpdater dependency-updater -o yaml
     kp clusterbuilder list
+    return $?
 }
 
 function unistall_build_service() {
     kapp delete -a tanzu-build-service -n build-service -y
     kubectl delete -f "${__DIR}/build/k8s/build-service/roles.yaml"
+    rm -rf /tmp/bundle
 }
 
 function main() {
-  if [[ "$1" =~ [delete|uninstall] ]]; then
-    unistall_build_service
-    exit
-  fi
+    if [[ "$1" =~ [delete|uninstall] ]]; then
+        unistall_build_service
+        exit
+    fi
 
-  if [[ -z $PASSWD ]]; then
-      echo -n "Enter password for $PRIVATE_REGISTRY: "
-      read -rs PASSWD
-      echo
-  fi
+    if [[ -z $PASSWD ]]; then
+        echo -n "Enter password for $PRIVATE_REGISTRY: "
+        read -rs PASSWD
+        echo
+    fi
 
-  if ! login_harbor; then
-    echo ""
-    echo "Failed to login to ${PRIVATE_REGISTRY}. Please check your credentials."
-    exit 1
-  fi
+    if ! login_harbor; then
+        echo ""
+        echo "Failed to login to ${PRIVATE_REGISTRY}. Please check your credentials."
+        exit 1
+    fi
 
-  if [[ -z $PIVOTAL_REGISTRY_USER ]]; then
-      echo -n "Enter username for $PIVOTAL_REGISTRY: "
-      read -r PIVOTAL_REGISTRY_USER
-      echo
-  fi
+    if [[ -z $PIVOTAL_REGISTRY_USER ]]; then
+        echo -n "Enter username for $PIVOTAL_REGISTRY: "
+        read -r PIVOTAL_REGISTRY_USER
+        echo
+    fi
 
-  if [[ -z $PIVOTAL_REGISTRY_PASSWORD ]]; then
-      echo -n "Enter password for $PIVOTAL_REGISTRY: "
-      read -rs PIVOTAL_REGISTRY_PASSWORD
-      echo
-  fi
+    if [[ -z $PIVOTAL_REGISTRY_PASSWORD ]]; then
+        echo -n "Enter password for $PIVOTAL_REGISTRY: "
+        read -rs PIVOTAL_REGISTRY_PASSWORD
+        echo
+    fi
 
-  if ! login_pivotal_registry; then
-    echo ""
-    echo "Failed to login to ${PIVOTAL_REGISTRY}. Please check your credentials."
-    exit 1
-  fi
+    if ! login_pivotal_registry; then
+        echo ""
+        echo "Failed to login to ${PIVOTAL_REGISTRY}. Please check your credentials."
+        exit 1
+    fi
 
-  if ! create_tanzu_project; then
-    echo ""
-    echo "Failed to create tanzu project in ${PRIVATE_REGISTRY}."
-    exit 1
-  fi
+    if ! create_tanzu_project; then
+        echo ""
+        echo "Failed to create tanzu project in ${PRIVATE_REGISTRY}."
+        exit 1
+    fi
 
-  if ! relocate_images; then
-    echo ""
-    echo "Failed to relocate images to ${PRIVATE_REGISTRY}."
-    exit 1
-  fi
+    if ! relocate_images; then
+        echo ""
+        echo "Failed to relocate images to ${PRIVATE_REGISTRY}."
+        exit 1
+    fi
 
-  install_build_service
-  import_build_service_dependencies
-  verify
+    if ! install_build_service; then
+        echo ""
+        echo "Failed to install tbs. Please check your deployment with"
+        echo "kapp inspect -a tanzu-build-service -n build-service"
+        exit 1
+    fi
+
+    if ! verify; then
+        echo ""
+        echo "Failed to verify tbs installed properly. Please check your deployment with"
+        echo "kapp inspect -a tanzu-build-service -n build-service"
+        exit 1
+    fi
 }
 
 PRIVATE_REGISTRY="registry.${DOMAIN}"
