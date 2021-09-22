@@ -3,14 +3,22 @@
   $ touch .env_development.sh
   $ vim .env_development.sh
 
-# Deployment defaults
+  # deployment defaults
   export DOMAIN='cluster-name.domain.cc'      # Enter the DNS subdomain
   export EMAIL_ADDRESS='nobody@gmail.com'     # E-Mail for CERT registration confirmation
   export PASSWD='my-pass'                     # Password that will be used throughout the project
 
-# vSphere cluster Info
+  # vsphere cluster info
   export CONTROL_PLANE_IP=10.213.206.65                        # The supervisor cluster IP
   export MANAGEMENT_CLUSTER_NAME="wcp.haas-402.pez.vmware.com" # The supervisor cluster name
+
+  # kubernetes cluster name (defaults to freshcloud)
+  export K8S_CLUSTER_NAME='dev'
+
+  # dns zone credentials for certificate challenge
+  export ZONE_ID='REDACTED'
+  export AWS_ACCESS_KEY_ID='REDACTED'
+  export AWS_SECRET_ACCESS_KEY='REDACTED'
 ```
 
 ### Install tanzu CLI

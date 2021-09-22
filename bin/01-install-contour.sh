@@ -2,13 +2,23 @@
 #
 # Install Contour
 
-source ../.env_development.sh
+__DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" || exit; pwd)"
+
+die() {
+    2>&1 echo "$@"
+    exit 1
+}
+
+# shellcheck disable=SC1091
+source "${__DIR}/../.env_development.sh" || die "Could not find '.env_development.sh' in root directory"
+# shellcheck disable=SC1091
+source "${__DIR}/../components/kubernetes-support/kubectl-support.sh" || die "Could not find 'kubectl-support.sh' in ${__DIR}/../components/kubernetes-support directory"
 
 function helm_install_contour() {
-  kubectl create namespace projectcontour
+  create_namespace projectcontour
   helm repo add bitnami https://charts.bitnami.com/bitnami
   helm repo update
-  helm install ingress bitnami/contour -n projectcontour --version 3.3.1
+  helm upgrade -i ingress bitnami/contour -n projectcontour --version 3.3.1
   if [ $? != 0 ]; then
    echo "Failed to install Contour. Bummer"
    exit 1
@@ -21,7 +31,7 @@ function get_load_balancer_ip() {
   while true; do
     if [ -z "$LB" ]; then
       LB=$(kubectl describe svc ingress-contour-envoy --namespace projectcontour | grep Ingress | awk '{print $3}')
-        sleep 3;
+      sleep 3;
     else
       echo "Create a DNS A for *.$DOMAIN to $LB"
       break

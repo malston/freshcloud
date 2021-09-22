@@ -2,16 +2,24 @@
 #
 # Install Cert-Manager
 
-source ../.env_development.sh
-source ../components/kubernetes-support/kubectl-support.sh
+__DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" || exit; pwd)"
 
+die() {
+    2>&1 echo "$@"
+    exit 1
+}
+
+# shellcheck disable=SC1091
+source "${__DIR}/../.env_development.sh" || die "Could not find '.env_development.sh' in root directory"
+# shellcheck disable=SC1091
+source "${__DIR}/../components/kubernetes-support/kubectl-support.sh" || die "Could not find 'kubectl-support.sh' in ${__DIR}/../components/kubernetes-support directory"
 
 function helm_install_cert-manager() {
-  kubectl create namespace cert-manager
+  create_namespace cert-manager
   helm repo add jetstack https://charts.jetstack.io
   helm repo update
-  helm install cert-manager jetstack/cert-manager --namespace cert-manager \
-   --version v1.0.2 --set installCRDs=true
+  helm upgrade -i cert-manager jetstack/cert-manager --namespace cert-manager \
+   --version v1.3.1 --set installCRDs=true
 
   if [ $? != 0 ]; then
    echo "Failed to install Cert-Manager. Bummer"
@@ -21,43 +29,40 @@ function helm_install_cert-manager() {
 
 function install_ClusterIssuer() {
 
-  cat <<EOF | kubectl apply -f -
-apiVersion: cert-manager.io/v1alpha2
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-staging
-spec:
-  acme:
-    email: $EMAIL_ADDRESS
-    privateKeySecretRef:
-      name: letsencrypt-staging
-    server: https://acme-staging-v02.api.letsencrypt.org/directory
-    solvers:
-    - http01:
-        ingress:
-          class: contour
-EOF
+kubectl create secret generic route53-secret \
+  --from-literal=secret-access-key="$AWS_SECRET_ACCESS_KEY" \
+  --namespace cert-manager
 
   cat <<EOF | kubectl apply -f -
-apiVersion: cert-manager.io/v1alpha2
+apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-prod
 spec:
   acme:
-    email: $EMAIL_ADDRESS
+    email: mjoey@vmware.com
+    preferredChain: ""
     privateKeySecretRef:
       name: letsencrypt-prod
     server: https://acme-v02.api.letsencrypt.org/directory
     solvers:
-    - http01:
-        ingress:
-          class: contour
+    - dns01:
+        cnameStrategy: Follow
+        route53:
+          accessKeyID: $AWS_ACCESS_KEY_ID
+          hostedZoneID: $ZONE_ID
+          region: us-east-1
+          secretAccessKeySecretRef:
+            key: secret-access-key
+            name: route53-secret
+      selector:
+        dnsZones:
+        - pez.joecool.cc
 EOF
 
 }
 
 helm_install_cert-manager
 wait_for_ready cert-manager
-sleep 10; 
+sleep 10;
 install_ClusterIssuer

@@ -12,3 +12,11 @@ function wait_for_ready() {
   done
   echo "All pods are running."
 }
+
+function create_namespace() {
+  namespace="${1:?"Namespace is required"}"
+
+  if ! kubectl get namespace "${namespace}" > /dev/null 2>&1; then
+    kubectl create namespace "${namespace}"
+  fi
+}

@@ -14,7 +14,7 @@ function die() {
 
 function tanzu_vsphere_create_k8s_cluster() {
   local temp_dir="${1:-/tmp}"
-  local cluster_name="${2:-dev}"
+  local cluster_name="${2:-$K8S_CLUSTER_NAME}"
   local namespace="${3:-ns1}"
   local control_plane_ip="${4:-$CONTROL_PLANE_IP}"
   local network="${5:-"VM Network"}"
