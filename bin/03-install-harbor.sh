@@ -21,6 +21,11 @@ function create_harbor_values() {
   cat <<EOF > harbor-values.yaml
 harborAdminPassword: $PASSWD
 
+persistence:
+  persistentVolumeClaim:
+    registry:
+      size: 50Gi
+
 service:
   type: ClusterIP
   tls:
