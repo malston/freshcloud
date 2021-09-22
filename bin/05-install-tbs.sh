@@ -47,6 +47,10 @@ function create_tanzu_project() {
     return $?
 }
 
+function create_kapp_controller() {
+  kapp deploy -a kc -f https://github.com/vmware-tanzu/carvel-kapp-controller/releases/latest/download/release.yml
+}
+
 function create_roles() {
     create_namespace "build-service"
     create_namespace "kpack"
@@ -193,6 +197,7 @@ EOF
 }
 
 function install_build_service() {
+  create_kapp_controller
   create_namespace build-service
   kubectl config set-context --current --namespace build-service
   create_roles
@@ -227,7 +232,7 @@ function verify() {
 }
 
 function unistall_build_service() {
-    kapp delete -a tanzu-build-service -n build-service
+    kapp delete -a tanzu-build-service -n build-service -y
     kubectl delete -f "${__DIR}/build/k8s/build-service/roles.yaml"
 }
 
