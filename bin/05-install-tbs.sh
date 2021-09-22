@@ -216,6 +216,7 @@ function import_build_service_dependencies() {
       die "Could not find ${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml"
     fi
   fi
+  echo "Importing kpack images from ${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml"
   kp import -f "${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml" --show-changes
 }
 
@@ -229,6 +230,11 @@ function unistall_build_service() {
 }
 
 function main() {
+  if [[ "$1" =~ [delete|uninstall] ]]; then
+    unistall_build_service
+    exit
+  fi
+
   if [[ -z $PASSWD ]]; then
       echo -n "Enter password for $PRIVATE_REGISTRY: "
       read -rs PASSWD
