@@ -193,6 +193,8 @@ EOF
 }
 
 function install_build_service() {
+  create_namespace build-service
+  kubectl config set-context --current --namespace build-service
   create_roles
   mkdir -p /tmp/bundle
   imgpkg pull -b "${PRIVATE_REGISTRY}/tanzu/build-service:${TANZU_BUILD_SERVICE_VERSION}" -o /tmp/bundle
@@ -225,7 +227,7 @@ function verify() {
 }
 
 function unistall_build_service() {
-    kapp delete -a tanzu-build-service -n tap-install
+    kapp delete -a tanzu-build-service -n build-service
     kubectl delete -f "${__DIR}/build/k8s/build-service/roles.yaml"
 }
 
