@@ -193,7 +193,7 @@ rules:
     verbs:
       - '*'
 EOF
-  kubectl apply -f "${__DIR}/build/k8s/build-service/roles.yaml"
+    kubectl apply -f "${__DIR}/build/k8s/build-service/roles.yaml"
 }
 
 function install_build_service() {
@@ -219,11 +219,11 @@ function install_build_service() {
 
 function import_build_service_dependencies() {
     if [ ! -f "${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml" ]; then
-      mkdir -p "${__DIR}/build/k8s/build-service"
-      read -rp "Please download descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml from https://network.pivotal.io to ${__DIR}/build/k8s/build-service. Press return when finished." -n 1 -r
-      if [ ! -f "${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml" ]; then
-        die "Could not find ${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml"
-      fi
+        mkdir -p "${__DIR}/build/k8s/build-service"
+        read -rp "Please download descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml from https://network.pivotal.io to ${__DIR}/build/k8s/build-service. Press return when finished." -n 1 -r
+        if [ ! -f "${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml" ]; then
+            die "Could not find ${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml"
+        fi
     fi
     echo "Importing kpack images from ${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml"
     kp import -f "${__DIR}/build/k8s/build-service/descriptor-$TANZU_BUILD_SERVICE_DESCRIPTOR_VERSION.yaml" --show-changes
