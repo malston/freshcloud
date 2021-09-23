@@ -23,8 +23,10 @@ function build_docker_container() {
   echo "${PASSWD}" | docker login -u admin "https://registry.${DOMAIN}" --password-stdin
 
   # Container: pipeline talks to k8s
+  cd "${__DIR}" || exit
   docker build --platform "linux/amd64" --rm -t "registry.${DOMAIN}/concourse-images/kubectl-docker:latest" .
   docker push "registry.${DOMAIN}/concourse-images/kubectl-docker:latest"
+  cd - || exit
 
   # Container: pipeline talks to kpack
   docker pull "gcr.io/cf-build-service-public/concourse-kpack-resource:1.0"
