@@ -54,7 +54,7 @@ CONTROL_PLANE_VM_CLASS: best-effort-small
 CONTROL_PLANE_MACHINE_COUNT: 1
 CONTROL_PLANE_STORAGE_CLASS: $storage_class
 WORKER_VM_CLASS: best-effort-large
-WORKER_MACHINE_COUNT: 3
+WORKER_MACHINE_COUNT: 5
 WORKER_STORAGE_CLASS: $storage_class
 STORAGE_CLASSES: $storage_class
 EOF
@@ -63,12 +63,22 @@ EOF
   printf "%s tanzu cluster config saved to: %s\n" "*" "$temp_dir/cluster-config.yaml"
   printf "%s k8s cluster manifest saved to: %s\n" "*" "$temp_dir/cluster.yaml"
   printf "%s cli logs saved to: %s\n" "*" "$temp_dir/$cluster_name.log"
-  echo y | tanzu cluster create "$cluster_name" --file "$temp_dir/cluster-config.yaml" --tkr="$kubernetes_version---vmware.$tkg_version" --log-file "$temp_dir/$cluster_name.log" -v9
+  printf "Add ephemeral volume to workers by adding the following under topology.workers to %s." "$temp_dir/cluster.yaml"
+  echo "
+  volumes:
+  - name: ephemeral-1
+    mountPath: /var/lib
+    capacity:
+      storage: 50Gi
+  "
+  read -rp "Press return when finished." -n 1 -r
+  tanzu cluster create "$cluster_name" --file "$temp_dir/cluster-config.yaml" --tkr="$kubernetes_version---vmware.$tkg_version" --log-file "$temp_dir/$cluster_name.log" -v9
 }
 
 function tanzu_vsphere_delete_k8s_cluster() {
   local cluster_name=${1:-dev}
-  tanzu cluster delete "$cluster_name"
+  local namespace=${2:-ns1}
+  tanzu cluster delete "$cluster_name" -n "$namespace"
 }
 
 function tanzu_login() {
@@ -87,7 +97,7 @@ tanzu_login "$MANAGEMENT_CLUSTER_NAME"
 temp_dir=$(mktemp -d -t cluster-XXXXXXXXXX)
 
 if [ "$1" == 'delete' ]; then
-    tanzu_vsphere_delete_k8s_cluster "$2"
+    tanzu_vsphere_delete_k8s_cluster "$2" "$3"
 else
   tanzu_vsphere_create_k8s_cluster "$temp_dir" "$@"
 fi
