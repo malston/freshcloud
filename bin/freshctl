@@ -83,8 +83,13 @@ spec:
   tag: registry.$DOMAIN/kpack/${APP_NAME}
   serviceAccount: ${APP_NAME}-service-account
   builder:
-    name: ${APP_NAME}-builder
-    kind: Builder
+$(if kubectl get namespace "build-service" > /dev/null 2>&1; then
+   echo "   name: default"
+   echo "   kind: ClusterBuilder"
+else
+   echo "   name: ${APP_NAME}-builder"
+   echo "   kind: Builder"
+fi)
   source:
     git:
       url: ${APP_REPO}
@@ -391,7 +396,9 @@ function add_app() {
   fi
 
   create_service_account_kpack
-  create_builder_kpack
+  if ! kubectl get namespace "build-service" > /dev/null 2>&1; then
+    create_builder_kpack
+  fi
   create_app_image_spec
   install_role_binding
   write_pipeline_params
@@ -458,12 +465,14 @@ elif [ "$1" == 'add' ]; then
     echo "$0 add config.app"
     exit 1
   fi
+  [ ! -f "$2" ] && die "Could not find app at: $2"
   add_app "$2"
 elif [ "$1" == 'delete' ]; then
   if [ -z "$2" ]; then
     echo "$0 delete config.app"
     exit 1
   fi
+  [ ! -f "$2" ] && die "Could not find app at: $2"
   delete_app "$2"
 elif [ "$1" == 'apps' ]; then
   list_apps
