@@ -15,18 +15,13 @@ source "${__DIR}/../.env_development.sh" || die "Could not find '.env_developmen
 source "${__DIR}/../components/kubernetes-support/kubectl-support.sh" || die "Could not find 'kubectl-support.sh' in ${__DIR}/../components/kubernetes-support directory"
 
 function helm_install_contour() {
-  create_namespace projectcontour
+  create_namespace "projectcontour"
   helm repo add bitnami https://charts.bitnami.com/bitnami
   helm repo update
-  helm upgrade -i ingress bitnami/contour -n projectcontour --version 3.3.1
-  if [ $? != 0 ]; then
-   echo "Failed to install Contour. Bummer"
-   exit 1
-  fi
+  helm upgrade -i ingress bitnami/contour -n projectcontour --version 3.3.1 || die "Failed to install Contour. Bummer"
 }
 
 function get_load_balancer_ip() {
-
   echo "Waiting to get the load-balancer IP."
   while true; do
     if [ -z "$LB" ]; then
