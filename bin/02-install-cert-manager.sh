@@ -14,26 +14,22 @@ source "${__DIR}/../.env_development.sh" || die "Could not find '.env_developmen
 # shellcheck disable=SC1091
 source "${__DIR}/../components/kubernetes-support/kubectl-support.sh" || die "Could not find 'kubectl-support.sh' in ${__DIR}/../components/kubernetes-support directory"
 
-function helm_install_cert-manager() {
+function helm_install_cert_manager() {
   create_namespace cert-manager
   helm repo add jetstack https://charts.jetstack.io
   helm repo update
-  helm upgrade -i cert-manager jetstack/cert-manager --namespace cert-manager \
-   --version v1.3.1 --set installCRDs=true
-
-  if [ $? != 0 ]; then
-   echo "Failed to install Cert-Manager. Bummer"
-   exit 1
-  fi
+  helm upgrade -i cert-manager jetstack/cert-manager \
+    --namespace cert-manager \
+    --version v1.3.1 \
+    --set installCRDs=true || die "Failed to install cert-manager."
 }
 
-function install_ClusterIssuer() {
+function install_cluster_issuer() {
+    kubectl create secret generic route53-secret \
+      --from-literal=secret-access-key="$AWS_SECRET_ACCESS_KEY" \
+      --namespace cert-manager
 
-kubectl create secret generic route53-secret \
-  --from-literal=secret-access-key="$AWS_SECRET_ACCESS_KEY" \
-  --namespace cert-manager
-
-  cat <<EOF | kubectl apply -f -
+    cat <<EOF | kubectl apply -f -
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -59,10 +55,9 @@ spec:
         dnsZones:
         - pez.joecool.cc
 EOF
-
 }
 
-helm_install_cert-manager
-wait_for_ready cert-manager
+helm_install_cert_manager
+wait_for_ready "cert-manager"
 sleep 10;
-install_ClusterIssuer
+install_cluster_issuer

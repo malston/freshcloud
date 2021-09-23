@@ -15,8 +15,17 @@ source "${__DIR}/../.env_development.sh" || die "Could not find '.env_developmen
 source "${__DIR}/../components/kubernetes-support/kubectl-support.sh" || die "Could not find 'kubectl-support.sh' in ${__DIR}/../components/kubernetes-support directory"
 
 
+function transfer_images() {
+    docker pull "concourse/concourse:7.4.0"
+    docker tag "concourse/concourse:7.4.0" "registry.$DOMAIN/concourse/concourse:7.4.0"
+    docker push "registry.$DOMAIN/concourse/concourse:7.4.0"
+}
+
 function create_concourse_values() {
-  cat <<EOF > concourse-values.yaml
+    cat <<EOF > concourse-values.yaml
+#image: registry.$DOMAIN/concourse/concourse
+#imageTag: "7.4.0"
+imagePullSecrets: [registry-credentials]
 concourse:
   web:
     externalUrl: https://ci.$DOMAIN
@@ -47,12 +56,14 @@ EOF
 }
 
 function helm_install_concourse() {
-  helm repo add concourse https://concourse-charts.storage.googleapis.com/
-  create_namespace concourse
-  helm upgrade -i concourse concourse/concourse -f concourse-values.yaml -n concourse --version 16.0.0
-  rm -f concourse-values.yaml
+    helm repo add "concourse" https://concourse-charts.storage.googleapis.com/
+    create_namespace "concourse"
+    helm upgrade -i "concourse" "concourse/concourse" -f "concourse-values.yaml" -n "concourse" --version "16.0.1"
+    rm -f concourse-values.yaml
 }
 
+# transfer_images
+create_docker_registry_secret "concourse"
 create_concourse_values
 helm_install_concourse
 wait_for_ready concourse

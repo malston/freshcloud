@@ -62,7 +62,7 @@ function helm_install_harbor() {
 
 function create_harbor_repos() {
 
-   for REPO in {concourse-images,kpack}; do
+   for REPO in {concourse,concourse-images,kpack,tanzu}; do
 
      echo "Creating: ${REPO} in Harbor."
 
@@ -91,7 +91,18 @@ sleep 120
 create_harbor_repos
 
 cat << EOF
+Login Details:
 url: https://registry.$DOMAIN
 username: admin
 password: ${PASSWD}
+EOF
+
+cat <<EOF
+
+Run the following commands to test:
+docker pull nginx
+docker tag nginx:latest registry.${DOMAIN}/tanzu/nginx:v1
+docker push registry.${DOMAIN}/tanzu/nginx:v1
+kubectl create deployment --image registry.${DOMAIN}/tanzu/nginx:v1 tanzu-nginx
+kubectl delete deployment tanzu-nginx
 EOF

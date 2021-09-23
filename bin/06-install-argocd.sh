@@ -14,7 +14,7 @@ source "${__DIR}/../.env_development.sh" || die "Could not find '.env_developmen
 # shellcheck disable=SC1091
 source "${__DIR}/../components/kubernetes-support/kubectl-support.sh" || die "Could not find 'kubectl-support.sh' in ${__DIR}/../components/kubernetes-support directory"
 
-function create_k8s_resources() {
+function create_service_account() {
     create_namespace "argocd"
     mkdir -p "${__DIR}/build/k8s/argocd"
     cat > "${__DIR}/build/k8s/argocd/resources.yaml" <<EOF
@@ -45,6 +45,9 @@ EOF
 function helm_install_argocd() {
     cat > "${__DIR}/build/k8s/argocd/values.yaml" <<EOF
 ---
+global:
+  imagePullSecrets:
+  - name: registry-credentials
 configs:
   secret:
     # Argo expects the password in the secret to be bcrypt hashed. You can create this hash with
@@ -84,9 +87,10 @@ EOF
 }
 
 function main() {
-    create_k8s_resources
+    create_docker_registry_secret "argocd"
+    create_service_account
     helm_install_argocd
-    wait_for_ready argocd
+    wait_for_ready "argocd"
     printf "Access the ArgoCD UI at: https://%s\n" "$(kubectl get httpproxy argocd -o jsonpath='{.spec.virtualhost.fqdn}')"
     printf "User: %s\n" "admin"
     printf "Password: %s" "$PASSWD"
