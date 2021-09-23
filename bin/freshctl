@@ -62,10 +62,14 @@ spec:
     name: default
     kind: ClusterStore
   order:
+  # - group:
+  #   - id: heroku/java
+  # - group:
+  #   - id: heroku/nodejs
   - group:
-    - id: heroku/java
+    - id: paketo-buildpacks/java
   - group:
-    - id: heroku/nodejs
+    - id: paketo-buildpacks/nodejs
 EOF
 
   kubectl apply -f "${__DIR}/build/${APP_NAME}/${APP_NAME}-kpack-builder.yml"
@@ -144,6 +148,7 @@ function write_pipeline_params() {
   cat <<EOF > "${__DIR}/build/${APP_NAME}/${APP_NAME}-params.yml"
 service-account-key: random-string
 domain: ${DOMAIN}
+cluster: ${K8S_CLUSTER_NAME}
 kubeconfig: |
   apiVersion: v1
   kind: Config
@@ -273,7 +278,7 @@ EOF
 fi
 
 cat <<EOF >> "${__DIR}/build/${APP_NAME}/${APP_NAME}-pipeline.yml"
-  - name: ${APP_NAME}-build-service
+  - name: ${APP_NAME}-kpack-image
     type: kpack-image
     source:
       image: "${APP_NAME}-image"
@@ -283,6 +288,16 @@ cat <<EOF >> "${__DIR}/build/${APP_NAME}/${APP_NAME}-pipeline.yml"
         kubeconfig: ((kubeconfig))
 
 jobs:
+  - name: build-${APP_NAME}-image
+    plan:
+      - get: ${APP_NAME}-source-code
+        trigger: true
+        #     - task: run unit tests
+        # file: source-code/pipeline/unit-test.yml
+      - put: ${APP_NAME}-kpack-image
+        params:
+          commitish: ${APP_NAME}-source-code/.git/ref
+
   - name: vulnerability-scan
     plan:
     - task: sleep
@@ -297,7 +312,7 @@ jobs:
           path: /bin/sleep
           args: [15s]
     - in_parallel:
-      - get: ${APP_NAME}-build-service
+      - get: ${APP_NAME}-kpack-image
         trigger: true
         passed: [build-${APP_NAME}-image]
       - get: ${APP_NAME}-image
@@ -319,20 +334,10 @@ jobs:
           - |
             trivy --cache-dir trivy-cache fs --severity HIGH,CRITICAL --vuln-type library,os --ignore-unfixed --exit-code 1 ${APP_NAME}-image/rootfs
 
-  - name: build-${APP_NAME}-image
+  - name: register-${APP_NAME}
     plan:
       - get: ${APP_NAME}-source-code
-        trigger: true
-        #     - task: run unit tests
-        # file: source-code/pipeline/unit-test.yml
-      - put: ${APP_NAME}-build-service
-        params:
-          commitish: ${APP_NAME}-source-code/.git/ref
-
-  - name: deploy-${APP_NAME}
-    plan:
-      - get: ${APP_NAME}-source-code
-      - get: ${APP_NAME}-build-service
+      - get: ${APP_NAME}-kpack-image
         passed:
         - vulnerability-scan
         trigger: true
@@ -350,6 +355,7 @@ jobs:
             KUBECONFIG:
             MANIFEST:
             DOMAIN:
+            K8S_CLUSTER_NAME:
           run:
             path: sh
             args:
@@ -357,16 +363,36 @@ jobs:
             - |
               echo "\$KUBECONFIG" > config.yml
               export KUBECONFIG=config.yml
-              echo "\$MANIFEST" > ${APP_NAME}-deployment.yml
-              IMG=\$(kubectl get image ${APP_NAME}-image -n ${APP_NAME} -o jsonpath="{.status.latestImage}")
-              sed -i "s|CURRENT_APP_IMAGE|\$IMG|" ${APP_NAME}-deployment.yml
-              kubectl apply -f ${APP_NAME}-deployment.yml
-              echo "https://${APP_NAME}.${DOMAIN}"
+              # Create kubeconfig context with Service Account secret
+              TOKEN_SECRET=\$(kubectl get serviceaccount -n argocd argocd -o jsonpath='{.secrets[0].name}')
+              TOKEN=\$(kubectl get secret -n argocd "\$TOKEN_SECRET" -o jsonpath='{.data.token}' | base64 --decode)
+              CLUSTER_NAME=\$(kubectl config view -o jsonpath="{.contexts[?(@.name=='"\$K8S_CLUSTER_NAME"')].context.cluster}")
+              kubectl config set-credentials "\$K8S_CLUSTER_NAME-argocd-token-user" --token "\$TOKEN"
+              kubectl config set-context "\$K8S_CLUSTER_NAME-argocd-token-user@\$CLUSTER_NAME" \
+                --user "\$K8S_CLUSTER_NAME-argocd-token-user" \
+                --cluster "\$CLUSTER_NAME"
+
+              # Add the config setup with the service account you created
+              argocd cluster add "\$K8S_CLUSTER_NAME-argocd-token-user@\$CLUSTER_NAME"
+              # See the clusters added
+              argocd cluster list
+              if ! kubectl get namespace "spring-petclinic-development" > /dev/null 2>&1; then
+                kubectl create namespace "spring-petclinic-development"
+              fi
+              CLUSTER_NAME=\$(kubectl config view -o jsonpath="{.contexts[?(@.name=='"\$K8S_CLUSTER_NAME"')].context.cluster}")
+              argocd app create "spring-petclinic-dev" \
+                --repo "https://github.com/malston/tanzu-pipelines.git" \
+                --path "argocd/spring-petclinic/dev" \
+                --dest-server "\$(kubectl config view -o jsonpath="{.clusters[?(@.name=='"\$CLUSTER_NAME"')].cluster.server}")" \
+                --dest-namespace "spring-petclinic-development" \
+                --sync-policy "automated"
+              argocd app list
           platform: linux
         params:
           KUBECONFIG: ((kubeconfig))
           MANIFEST: ((app_manifest))
           DOMAIN: ((domain))
+          K8S_CLUSTER_NAME: ((cluster))
 EOF
 }
 
@@ -432,6 +458,7 @@ function delete_app() {
   source "${1}"
 
   fly -t "${K8S_CLUSTER_NAME}" dp -p "build-${APP_NAME}"
+  # kubectl delete -f "${__DIR}/build/${APP_NAME}"
   kubectl delete namespace "${APP_NAME}"
   echo "Deleting deployment staging directory: build/${APP_NAME}/"
   rm -rf "${__DIR}/build/${APP_NAME}"
