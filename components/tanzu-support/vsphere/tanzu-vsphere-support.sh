@@ -76,7 +76,9 @@ EOF
   cp "$temp_dir/cluster.yaml" "$__DIR/build/k8s/tanzu/cluster.yaml"
   kubectl apply -f "$temp_dir/cluster.yaml"
   tanzu cluster get "$cluster_name" -n "$namespace"
-  echo watch kubectl get machinedeployment,machines -n "$namespace"
+  echo "Try issuing the following commands:"
+  echo kubectl get tkc "$cluster_name" -n "$namespace"
+  echo kubectl get machines,machinedeployment -n "$namespace"
 }
 
 function tanzu_vsphere_delete_k8s_cluster() {
