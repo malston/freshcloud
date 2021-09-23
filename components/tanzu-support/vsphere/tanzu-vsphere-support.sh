@@ -76,7 +76,7 @@ EOF
   cp "$temp_dir/cluster.yaml" "$__DIR/build/k8s/tanzu/cluster.yaml"
   kubectl apply -f "$temp_dir/cluster.yaml"
   tanzu cluster get "$cluster_name" -n "$namespace"
-  echo "Try issuing the following commands:"
+  echo "Try issuing the following commands to watch progress:"
   echo kubectl get tkc "$cluster_name" -n "$namespace"
   echo kubectl get machines,machinedeployment -n "$namespace"
 }
@@ -98,12 +98,20 @@ if [ -z "$MANAGEMENT_CLUSTER_NAME" ]; then
   exit 1
 fi
 
-tanzu_login "$MANAGEMENT_CLUSTER_NAME"
+# tanzu_login "$MANAGEMENT_CLUSTER_NAME"
 
-temp_dir=$(mktemp -d -t cluster-XXXXXXXXXX)
+# temp_dir=$(mktemp -d -t cluster-XXXXXXXXXX)
 
 if [ "$1" == 'delete' ]; then
     tanzu_vsphere_delete_k8s_cluster "$2" "$3"
 else
   tanzu_vsphere_create_k8s_cluster "$temp_dir" "$@"
+  echo
+  echo "Once the cluster is created be sure to login using the vsphere plugin:"
+  echo "kubectl vsphere login \\"
+  echo "  --server \"$MANAGEMENT_CLUSTER_NAME\" \\"
+  echo "  --tanzu-kubernetes-cluster-name \"$K8S_CLUSTER_NAME\" \\"
+  echo "  --tanzu-kubernetes-cluster-namespace \"$K8S_NAMESPACE\" \\"
+  echo "  --vsphere-username \"administrator@vsphere.local\" \\"
+  echo "  --insecure-skip-tls-verify"
 fi

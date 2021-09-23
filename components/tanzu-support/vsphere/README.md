@@ -14,6 +14,7 @@
 
   # kubernetes cluster name (defaults to freshcloud)
   export K8S_CLUSTER_NAME='dev'
+  export K8S_NAMESPACE='ns1'
 
   # dns zone credentials for certificate challenge
   export ZONE_ID='REDACTED'
