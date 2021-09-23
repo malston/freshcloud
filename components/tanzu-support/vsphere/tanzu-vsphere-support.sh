@@ -21,6 +21,7 @@ function tanzu_vsphere_create_k8s_cluster() {
   local storage_class="${6:-pacific-gold-storage-policy}"
   local kubernetes_version="${7:-v1.20.9}"
   local tkg_version="${8:-1-tkg.1.a4cee5b}"
+  mkdir -p "$__DIR/build/k8s/tanzu"
   cat > "$temp_dir/cluster-config.yaml" <<EOF
 CLUSTER_NAME: $cluster_name
 CLUSTER_PLAN: dev
@@ -72,7 +73,10 @@ EOF
       storage: 50Gi
   "
   read -rp "Press return when finished." -n 1 -r
-  tanzu cluster create "$cluster_name" --file "$temp_dir/cluster-config.yaml" --tkr="$kubernetes_version---vmware.$tkg_version" --log-file "$temp_dir/$cluster_name.log" -v9
+  cp "$temp_dir/cluster.yaml" "$__DIR/build/k8s/tanzu/cluster.yaml"
+  kubectl apply -f "$temp_dir/cluster.yaml"
+  tanzu cluster get "$cluster_name" -n "$namespace"
+  echo watch kubectl get machinedeployment,machines -n "$namespace"
 }
 
 function tanzu_vsphere_delete_k8s_cluster() {
