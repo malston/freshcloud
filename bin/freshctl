@@ -62,14 +62,17 @@ spec:
     name: default
     kind: ClusterStore
   order:
-  # - group:
-  #   - id: heroku/java
-  # - group:
-  #   - id: heroku/nodejs
-  - group:
-    - id: paketo-buildpacks/java
-  - group:
-    - id: paketo-buildpacks/nodejs
+$(if [ "$BUILDPACK" == 'heroku' ]; then
+  echo "  - group:"
+  echo "    - id: heroku/java"
+  echo "  - group:"
+  echo "    - id: heroku/nodejs"
+else
+  echo "  - group:"
+  echo "    - id: paketo-buildpacks/java"
+  echo "  - group:"
+  echo "    - id: paketo-buildpacks/nodejs"
+fi)
 EOF
 
   kubectl apply -f "${__DIR}/build/${APP_NAME}/${APP_NAME}-kpack-builder.yml"

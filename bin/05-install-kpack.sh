@@ -61,8 +61,41 @@ spec:
 EOF
 }
 
+function create_paketo_cluster_stack_kpack() {
+  cat <<EOF | kubectl apply -f -
+apiVersion: kpack.io/v1alpha1
+kind: ClusterStack
+metadata:
+  name: base
+spec:
+  id: "io.buildpacks.stacks.bionic"
+  buildImage:
+    image: "paketobuildpacks/build:base-cnb"
+  runImage:
+    image: "paketobuildpacks/run:base-cnb"
+EOF
+}
+
+function create_paketo_cluster_store_kpack() {
+  cat <<EOF | kubectl apply -f -
+apiVersion: kpack.io/v1alpha1
+kind: ClusterStore
+metadata:
+  name: default
+spec:
+  sources:
+  - image: gcr.io/paketo-buildpacks/java
+  - image: gcr.io/paketo-buildpacks/nodejs
+EOF
+}
+
 build_docker_container
 kube_install_kpack
-wait_for_ready kpack
-create_heroku_cluster_stack_kpack
-create_heroku_cluster_store_kpack
+wait_for_ready "kpack"
+if [ "$BUILDPACK" == 'heroku' ]; then
+    create_heroku_cluster_stack_kpack
+    create_heroku_cluster_store_kpack
+else
+    create_paketo_cluster_stack_kpack
+    create_paketo_cluster_store_kpack
+fi
