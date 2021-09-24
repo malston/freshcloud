@@ -16,10 +16,20 @@
   export K8S_CLUSTER_NAME='dev'
   export K8S_NAMESPACE='ns1'
 
-  # dns zone credentials for certificate challenge
+  export CHALLENGE_TYPE='http' # challenge type for cert-manager, defaults to 'http'
+
+  # dns zone credentials (only necessary for 'dns' certificate challenge)
   export ZONE_ID='REDACTED'
   export AWS_ACCESS_KEY_ID='REDACTED'
   export AWS_SECRET_ACCESS_KEY='REDACTED'
+
+  # credentials for network.pivotal.io (only necessary if deploying the tanzu build service)
+  export PIVOTAL_REGISTRY_USER='nobody@gmail.com'
+  export PIVOTAL_REGISTRY_PASSWORD='REDACTED'
+
+  # credentials for pulling images from docker to avoid rate limiting ImagePullBack errors
+  export DOCKER_USERNAME='nobody@gmail.com'
+  export DOCKER_PASSWORD='REDACTED'
 ```
 
 ### Install tanzu CLI
