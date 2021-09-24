@@ -15,21 +15,21 @@ source "${__DIR}/../.env_development.sh" || die "Could not find '.env_developmen
 source "${__DIR}/../components/kubernetes-support/kubectl-support.sh" || die "Could not find 'kubectl-support.sh' in ${__DIR}/../components/kubernetes-support directory"
 
 function helm_install_cert_manager() {
-  create_namespace cert-manager
-  helm repo add jetstack https://charts.jetstack.io
-  helm repo update
-  helm upgrade -i cert-manager jetstack/cert-manager \
-    --namespace cert-manager \
-    --version v1.3.1 \
-    --set installCRDs=true || die "Failed to install cert-manager."
+    create_namespace "cert-manager"
+    helm repo add "jetstack" https://charts.jetstack.io
+    helm repo update
+    helm upgrade -i "cert-manager" "jetstack/cert-manager" \
+      --namespace "cert-manager" \
+      --version "v1.3.1" \
+      --set installCRDs="true" || die "Failed to install cert-manager."
 }
 
 function install_cluster_issuer() {
-  if [ "$CHALLENGE_TYPE" == 'dns' ]; then
-    kubectl create secret generic route53-secret \
-      --from-literal=secret-access-key="$AWS_SECRET_ACCESS_KEY" \
-      --namespace cert-manager
-  fi
+    if [ "$CHALLENGE_TYPE" == 'dns' ]; then
+        kubectl create secret generic route53-secret \
+          --from-literal=secret-access-key="$AWS_SECRET_ACCESS_KEY" \
+          --namespace cert-manager
+    fi
     cat <<EOF | kubectl apply -f -
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
