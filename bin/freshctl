@@ -167,14 +167,14 @@ kubeconfig: |
       certificate-authority-data: ${CA}
       server: ${SERVER}
   contexts:
-  - name: default-context
+  - name: $K8S_CLUSTER_NAME-argocd-token-user@$K8S_CLUSTER_NAME
     context:
       cluster: ${CLUSTER_NAME}
       namespace: default
-      user: default-user
-  current-context: default-context
+      user: $K8S_CLUSTER_NAME-argocd-token-user
+  current-context: $K8S_CLUSTER_NAME-argocd-token-user@$K8S_CLUSTER_NAME
   users:
-  - name: default-user
+  - name: $K8S_CLUSTER_NAME-argocd-token-user
     user:
       token: ${TOKEN}
 app_manifest: |
@@ -377,7 +377,7 @@ jobs:
               export KUBECONFIG=config.yml
               # Add the config setup with the service account you created
               argocd login argocd.\$DOMAIN --username admin --password \$ARGOCD_PASSWORD
-              echo y | argocd cluster add "default-context" --kubeconfig config.yml --server "argocd.\$DOMAIN"
+              echo y | argocd cluster add "$K8S_CLUSTER_NAME-argocd-token-user@$K8S_CLUSTER_NAME" --kubeconfig config.yml --server "argocd.\$DOMAIN"
               # See the clusters added
               argocd cluster list
               if ! kubectl get namespace "${APP_NAME}-development" > /dev/null 2>&1; then
