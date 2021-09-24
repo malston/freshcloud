@@ -25,10 +25,11 @@ function helm_install_cert_manager() {
 }
 
 function install_cluster_issuer() {
+  if [ "$CHALLENGE_TYPE" == 'dns' ]; then
     kubectl create secret generic route53-secret \
       --from-literal=secret-access-key="$AWS_SECRET_ACCESS_KEY" \
       --namespace cert-manager
-
+  fi
     cat <<EOF | kubectl apply -f -
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
@@ -42,6 +43,11 @@ spec:
       name: letsencrypt-prod
     server: https://acme-v02.api.letsencrypt.org/directory
     solvers:
+    - http01:
+        ingress:
+          class: contour$(
+if [ "$CHALLENGE_TYPE" == 'dns' ]; then
+  echo "
     - dns01:
         cnameStrategy: Follow
         route53:
@@ -53,7 +59,8 @@ spec:
             name: route53-secret
       selector:
         dnsZones:
-        - pez.joecool.cc
+        - $DOMAIN"
+fi)
 EOF
 }
 
