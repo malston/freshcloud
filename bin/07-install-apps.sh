@@ -32,7 +32,7 @@ function configure_argocd() {
 }
 
 function login_argocd() {
-    argocd login "$(kubectl get httpproxy argocd -n argocd -o jsonpath='{.spec.virtualhost.fqdn}')" --username admin --password "$PASSWD"
+    argocd login "$(kubectl get httpproxy argocd -n argocd -o jsonpath='{.spec.virtualhost.fqdn}')" --username "admin" --password "$PASSWD"
 }
 
 function register_cluster() {

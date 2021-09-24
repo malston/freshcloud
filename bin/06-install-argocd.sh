@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Install Tanzu Build Service
+# Install ArgoCD
 
 __DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" || exit; pwd)"
 
@@ -79,9 +79,9 @@ spec:
       - name: argocd-server
         port: 443
 EOF
-    helm repo add argo https://argoproj.github.io/argo-helm
-    helm upgrade --install argocd argo/argo-cd -f "${__DIR}/build/k8s/argocd/values.yaml" \
-        --namespace argocd \
+    helm repo add "argo" https://argoproj.github.io/argo-helm
+    helm upgrade --install "argocd" "argo/argo-cd" -f "${__DIR}/build/k8s/argocd/values.yaml" \
+        --namespace "argocd" \
         --version "3.21.0"
     kubectl apply -f "${__DIR}/build/k8s/argocd/httpproxy.yaml"
 }
