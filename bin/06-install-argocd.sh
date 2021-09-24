@@ -91,7 +91,7 @@ function main() {
     create_service_account
     helm_install_argocd
     wait_for_ready "argocd"
-    printf "Access the ArgoCD UI at: https://%s\n" "$(kubectl get httpproxy argocd -o jsonpath='{.spec.virtualhost.fqdn}')"
+    printf "Access the ArgoCD UI at: https://%s\n" "$(kubectl -n argocd get httpproxy argocd -o jsonpath='{.spec.virtualhost.fqdn}')"
     printf "User: %s\n" "admin"
     printf "Password: %s" "$PASSWD"
 }
