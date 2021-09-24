@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Install Tanzu Build Service
+# Install ArgoCD Applications
 
 __DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" || exit; pwd)"
 
@@ -27,14 +27,10 @@ function install_argocli() {
 function configure_argocd() {
     login_argocd
     register_cluster
-    create_guestbook_app
-    printf "Access the ArgoCD UI at: https://%s\n" "$(kubectl get httpproxy argocd -o jsonpath='{.spec.virtualhost.fqdn}')"
-    printf "User: %s\n" "admin"
-    printf "Password: %s" "$PASSWD"
 }
 
 function login_argocd() {
-    argocd login "$(kubectl get httpproxy argocd -o jsonpath='{.spec.virtualhost.fqdn}')" --username admin --password "$PASSWD"
+    argocd login "$(kubectl get httpproxy argocd -n argocd -o jsonpath='{.spec.virtualhost.fqdn}')" --username admin --password "$PASSWD"
 }
 
 function register_cluster() {
@@ -48,7 +44,7 @@ function register_cluster() {
       --cluster "$CLUSTER_NAME"
 
     # Add the config setup with the service account you created
-    argocd cluster add "$K8S_CLUSTER_NAME-argocd-token-user@$CLUSTER_NAME"
+    argocd cluster add "$K8S_CLUSTER_NAME-argocd-token-user@$CLUSTER_NAME" --upsert
 
     # See the clusters added
     argocd cluster list
@@ -62,53 +58,72 @@ function create_guestbook_app() {
     --path "guestbook" \
     --dest-server "$(kubectl config view -o jsonpath="{.clusters[?(@.name=='"$CLUSTER_NAME"')].cluster.server}")" \
     --dest-namespace "guestbook" \
-    --sync-policy "automated"
+    --sync-policy "automated" \
+    --upsert
   argocd app list
-  kubectl -n guestbook patch svc guestbook-ui -p '{"spec": {"type": "LoadBalancer"}}'
+  read -rp "Would you like to create a load balancer for the guestbook application? " yn
+  case $yn in
+      [Yy]* ) kubectl -n "guestbook" patch svc "guestbook-ui" -p '{"spec": {"type": "LoadBalancer"}}'; return;;
+      [Nn]* ) return;;
+      * ) echo "Please answer yes or no.";;
+  esac
 }
 
-function create_spring_petclinic_development() {
-    create_namespace "spring-petclinic-development"
+function create_app_production() {
+    local app="$1"
+    create_namespace "$app-production"
     CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='"$K8S_CLUSTER_NAME"')].context.cluster}")
-    argocd app create "spring-petclinic-dev" \
+    # CURRENT_APP_IMAGE=$(yq e .spec.template.spec.containers[0].image argocd/$app/production/deployment.yaml)
+    # IMAGE=$(kustomize build argocd/$app/production | kbld -f - | grep -e 'image:' | awk '{print $NF}')
+    # sed -i "s|$CURRENT_APP_IMAGE|$IMAGE|" argocd/$app/production/deployment.yaml
+    argocd app create "$app-prod" \
       --repo "https://github.com/malston/tanzu-pipelines.git" \
-      --path "argocd/spring-petclinic/dev" \
+      --path "argocd/$app/production" \
       --dest-server "$(kubectl config view -o jsonpath="{.clusters[?(@.name=='"$CLUSTER_NAME"')].cluster.server}")" \
-      --dest-namespace "spring-petclinic-development" \
+      --dest-namespace "$app-production" \
       --sync-policy "automated"
     argocd app list
-}
-
-function create_spring_petclinic_production() {
-    create_namespace "spring-petclinic-production"
-    CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='"$K8S_CLUSTER_NAME"')].context.cluster}")
-    # CURRENT_APP_IMAGE=$(yq e .spec.template.spec.containers[0].image argocd/spring-petclinic/production/deployment.yaml)
-    # IMAGE=$(kustomize build argocd/spring-petclinic/production | kbld -f - | grep -e 'image:' | awk '{print $NF}')
-    # sed -i "s|$CURRENT_APP_IMAGE|$IMAGE|" argocd/spring-petclinic/production/deployment.yaml
-    argocd app create "spring-petclinic-prod" \
-      --repo "https://github.com/malston/tanzu-pipelines.git" \
-      --path "argocd/spring-petclinic/production" \
-      --dest-server "$(kubectl config view -o jsonpath="{.clusters[?(@.name=='"$CLUSTER_NAME"')].cluster.server}")" \
-      --dest-namespace "spring-petclinic-production" \
-      --sync-policy "automated"
-    argocd app list
-    wait_for_loadbalancer
+    wait_for_loadbalancer "$app"
 }
 
 function wait_for_loadbalancer() {
+    local app="$1"
     echo "Waiting for load balancer to become ready."
-    while kubectl get services prod-spring-petclinic-service -n spring-petclinic-production -o jsonpath='{.status.loadBalancer}' | grep -E '{}' > /dev/null 2>&1; do
+    sleep 10
+    while kubectl get services "prod-$app-service" -n "$app-production" -o jsonpath='{.status.loadBalancer}' | grep -E '{}' > /dev/null 2>&1; do
         echo -n "..."
         sleep 10
     done
-    printf "Access the Production Spring PetClinic UI at: http://%s\n" "$(kubectl get services prod-spring-petclinic-service -n spring-petclinic-production -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
+    printf "Access the Production Spring PetClinic UI at: http://%s\n" "$(kubectl get services "prod-$app-service" -n "$app-production" -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
 }
 
 function main() {
+    # shellcheck source=apps/${APP_NAME}.sh
+    # shellcheck disable=SC1091
+    source "${1}"
+
     install_argocli
     configure_argocd
-    create_spring_petclinic_development
-    create_spring_petclinic_production
+    create_guestbook_app
+
+    printf "\nAccess the ArgoCD UI at: https://%s\n" "$(kubectl -n argocd get httpproxy argocd -o jsonpath='{.spec.virtualhost.fqdn}')"
+    printf "User: %s\n" "admin"
+    printf "Password: %s\n\n" "$PASSWD"
+
+    # shellcheck disable=SC2153
+    local app="$APP_NAME"
+
+    while true; do
+        read -rp "Would you like to deploy $app to production? " yn
+        case $yn in
+            [Yy]* ) create_app_production "$app"; break;;
+            [Nn]* ) exit;;
+            * ) echo "Please answer yes or no.";;
+        esac
+    done
 }
 
-main
+[[ $# -eq 0 ]] && die "Usage: $0 <path-to-app-manifest>"
+[[ ! -f "$1" ]] && die "Could not find path to file at: $1"
+
+main "$@"
