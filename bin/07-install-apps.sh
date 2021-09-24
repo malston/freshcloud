@@ -64,8 +64,7 @@ function create_guestbook_app() {
   read -rp "Would you like to create a load balancer for the guestbook application? " yn
   case $yn in
       [Yy]* ) kubectl -n "guestbook" patch svc "guestbook-ui" -p '{"spec": {"type": "LoadBalancer"}}'; return;;
-      [Nn]* ) return;;
-      * ) echo "Please answer yes or no.";;
+      * ) return;;
   esac
 }
 
