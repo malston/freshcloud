@@ -9,8 +9,8 @@
   export PASSWD='my-pass'                     # Password that will be used throughout the project
 
   # vsphere cluster info
-  export CONTROL_PLANE_IP=10.213.206.65                        # The supervisor cluster IP
-  export MANAGEMENT_CLUSTER_NAME="wcp.haas-402.pez.vmware.com" # The supervisor cluster name
+  export CONTROL_PLANE_IP=10.1.1.10                # The supervisor cluster IP
+  export MANAGEMENT_CLUSTER_NAME="wcp.example.com" # The supervisor cluster name
 
   # kubernetes cluster name (defaults to freshcloud)
   export K8S_CLUSTER_NAME='dev'
