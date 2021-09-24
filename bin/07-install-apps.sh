@@ -26,7 +26,9 @@ function install_argocli() {
 
 function configure_argocd() {
     login_argocd
-    register_cluster
+    if ! argocd cluster list --server "argocd.$DOMAIN" >/dev/null 2>&1; then
+      register_cluster
+    fi
 }
 
 function login_argocd() {
@@ -34,6 +36,7 @@ function login_argocd() {
 }
 
 function register_cluster() {
+    echo "Registering cluster with ArgoCD..."
     # Create kubeconfig context with Service Account secret
     TOKEN_SECRET=$(kubectl get serviceaccount -n argocd argocd -o jsonpath='{.secrets[0].name}')
     TOKEN=$(kubectl get secret -n argocd "$TOKEN_SECRET" -o jsonpath='{.data.token}' | base64 --decode)
@@ -99,30 +102,29 @@ function wait_for_loadbalancer() {
 function main() {
     # shellcheck source=apps/${APP_NAME}.sh
     # shellcheck disable=SC1091
-    source "${1}"
+    [[ -f "$1" ]] && source "${1}"
 
     install_argocli
     configure_argocd
-    create_guestbook_app
+
+    if [ -n "$APP_NAME" ]; then
+      while true; do
+          read -rp "Would you like to deploy $APP_NAME to production? " yn
+          case $yn in
+              [Yy]* ) create_app_production "$APP_NAME"; break;;
+              [Nn]* ) exit;;
+              * ) echo "Please answer yes or no.";;
+          esac
+      done
+    else
+        create_guestbook_app
+    fi
 
     printf "\nAccess the ArgoCD UI at: https://%s\n" "$(kubectl -n argocd get httpproxy argocd -o jsonpath='{.spec.virtualhost.fqdn}')"
     printf "User: %s\n" "admin"
     printf "Password: %s\n\n" "$PASSWD"
-
-    # shellcheck disable=SC2153
-    local app="$APP_NAME"
-
-    while true; do
-        read -rp "Would you like to deploy $app to production? " yn
-        case $yn in
-            [Yy]* ) create_app_production "$app"; break;;
-            [Nn]* ) exit;;
-            * ) echo "Please answer yes or no.";;
-        esac
-    done
 }
 
-[[ $# -eq 0 ]] && die "Usage: $0 <path-to-app-manifest>"
-[[ ! -f "$1" ]] && die "Could not find path to file at: $1"
+[[ ! -f "$1" ]] && die "Usage: $0 <path-to-app-manifest>"
 
 main "$@"
