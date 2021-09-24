@@ -100,9 +100,11 @@ function wait_for_loadbalancer() {
 }
 
 function main() {
-    # shellcheck source=apps/${APP_NAME}.sh
+    # shellcheck source=apps/${1}.sh
     # shellcheck disable=SC1091
-    [[ -f "$1" ]] && source "${1}"
+    if [[ -f "$1" ]]; then
+      source "${1}" || die "Usage: $0 <path-to-app-manifest>"
+    fi
 
     install_argocli
     configure_argocd
@@ -124,7 +126,5 @@ function main() {
     printf "User: %s\n" "admin"
     printf "Password: %s\n\n" "$PASSWD"
 }
-
-[[ ! -f "$1" ]] && die "Usage: $0 <path-to-app-manifest>"
 
 main "$@"
