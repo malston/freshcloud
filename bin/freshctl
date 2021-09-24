@@ -139,31 +139,37 @@ EOF
 
 function write_pipeline_params() {
   echo "Writing pipeline params yaml"
+  TOKEN_SECRET=$(kubectl get serviceaccount -n argocd argocd -o jsonpath='{.secrets[0].name}')
+  TOKEN=$(kubectl get secret -n argocd "$TOKEN_SECRET" -o jsonpath='{.data.token}' | base64 --decode)
+  CLUSTER_NAME=$(kubectl config view -o jsonpath="{.contexts[?(@.name=='"$K8S_CLUSTER_NAME"')].context.cluster}")
+  CA=$(kubectl get "secret/${TOKEN_SECRET}" -n argocd -o jsonpath='{.data.ca\.crt}')
+  SERVER=$(kubectl config view -o jsonpath="{.clusters[?(@.name=='"$CLUSTER_NAME"')].cluster.server}")
 
   # Vars we need to add to our kubeconfig
-  SERVER=$(kubectl cluster-info|head -1|awk '{print $NF}')
-  NAME=$(kubectl get secrets -n "${APP_NAME}" |grep "${APP_NAME}-service-account-token"|awk '{print $1}')
-  CA=$(kubectl get "secret/${NAME}" -n "${APP_NAME}" -o jsonpath='{.data.ca\.crt}')
-  TOKEN=$(kubectl get "secret/${NAME}" -n "${APP_NAME}" -o jsonpath='{.data.token}' | base64 --decode)
+  # SERVER=$(kubectl cluster-info|head -1|awk '{print $NF}')
+  # NAME=$(kubectl get secrets -n "${APP_NAME}" |grep "${APP_NAME}-service-account-token"|awk '{print $1}')
+  # CA=$(kubectl get "secret/${NAME}" -n "${APP_NAME}" -o jsonpath='{.data.ca\.crt}')
+  # TOKEN=$(kubectl get "secret/${NAME}" -n "${APP_NAME}" -o jsonpath='{.data.token}' | base64 --decode)
   # NAMESPACE=$(kubectl get "secret/${NAME}" -n "${APP_NAME}" -o jsonpath='{.data.namespace}' | base64 --decode)
 
   # Create a role to be used by concourse to deploy application builds.
   cat <<EOF > "${__DIR}/build/${APP_NAME}/${APP_NAME}-params.yml"
 service-account-key: random-string
 domain: ${DOMAIN}
-cluster: ${K8S_CLUSTER_NAME}
+cluster_server: ${SERVER}
+argocd_password: ${PASSWD}
 kubeconfig: |
   apiVersion: v1
   kind: Config
   clusters:
-  - name: ${K8S_CLUSTER_NAME}
+  - name: ${CLUSTER_NAME}
     cluster:
       certificate-authority-data: ${CA}
       server: ${SERVER}
   contexts:
   - name: default-context
     context:
-      cluster: ${K8S_CLUSTER_NAME}
+      cluster: ${CLUSTER_NAME}
       namespace: default
       user: default-user
   current-context: default-context
@@ -171,7 +177,6 @@ kubeconfig: |
   - name: default-user
     user:
       token: ${TOKEN}
-
 app_manifest: |
   apiVersion: apps/v1
   kind: Deployment
@@ -273,10 +278,12 @@ resources:
     source:
       uri: ${APP_REPO}
       branch: ${APP_BRANCH}
+
 EOF
 if [ -n "${DEPLOY_KEY}" ]; then
 cat <<EOF >> "${__DIR}/build/${APP_NAME}/${APP_NAME}-pipeline.yml"
       private_key: ((git_repo_deploy_key))
+
 EOF
 fi
 
@@ -309,7 +316,7 @@ jobs:
         image_resource:
           type: registry-image
           source:
-            repository: ubuntu
+            repository: registry.${DOMAIN}/kpack/ubuntu
             tag: bionic
         run:
           path: /bin/sleep
@@ -325,7 +332,8 @@ jobs:
         image_resource:
           type: registry-image
           source:
-            repository: aquasec/trivy
+            repository: registry.pez.joecool.cc/kpack/aquasec/trivy
+            tag: 0.19.2
         inputs:
         - name: ${APP_NAME}-image
         caches:
@@ -344,7 +352,7 @@ jobs:
         passed:
         - vulnerability-scan
         trigger: true
-      - task: deploy-kubernetes
+      - task: create-app
         config:
           platform: linux
           image_resource:
@@ -358,7 +366,8 @@ jobs:
             KUBECONFIG:
             MANIFEST:
             DOMAIN:
-            K8S_CLUSTER_NAME:
+            CLUSTER_SERVER:
+            ARGOCD_PASSWORD:
           run:
             path: sh
             args:
@@ -366,27 +375,18 @@ jobs:
             - |
               echo "\$KUBECONFIG" > config.yml
               export KUBECONFIG=config.yml
-              # Create kubeconfig context with Service Account secret
-              TOKEN_SECRET=\$(kubectl get serviceaccount -n argocd argocd -o jsonpath='{.secrets[0].name}')
-              TOKEN=\$(kubectl get secret -n argocd "\$TOKEN_SECRET" -o jsonpath='{.data.token}' | base64 --decode)
-              CLUSTER_NAME=\$(kubectl config view -o jsonpath="{.contexts[?(@.name=='"\$K8S_CLUSTER_NAME"')].context.cluster}")
-              kubectl config set-credentials "\$K8S_CLUSTER_NAME-argocd-token-user" --token "\$TOKEN"
-              kubectl config set-context "\$K8S_CLUSTER_NAME-argocd-token-user@\$CLUSTER_NAME" \
-                --user "\$K8S_CLUSTER_NAME-argocd-token-user" \
-                --cluster "\$CLUSTER_NAME"
-
               # Add the config setup with the service account you created
-              argocd cluster add "\$K8S_CLUSTER_NAME-argocd-token-user@\$CLUSTER_NAME"
+              argocd login argocd.\$DOMAIN --username admin --password \$ARGOCD_PASSWORD
+              echo y | argocd cluster add "default-context" --kubeconfig config.yml --server "argocd.\$DOMAIN"
               # See the clusters added
               argocd cluster list
               if ! kubectl get namespace "spring-petclinic-development" > /dev/null 2>&1; then
                 kubectl create namespace "spring-petclinic-development"
               fi
-              CLUSTER_NAME=\$(kubectl config view -o jsonpath="{.contexts[?(@.name=='"\$K8S_CLUSTER_NAME"')].context.cluster}")
               argocd app create "spring-petclinic-dev" \
                 --repo "https://github.com/malston/tanzu-pipelines.git" \
                 --path "argocd/spring-petclinic/dev" \
-                --dest-server "\$(kubectl config view -o jsonpath="{.clusters[?(@.name=='"\$CLUSTER_NAME"')].cluster.server}")" \
+                --dest-server "\$CLUSTER_SERVER" \
                 --dest-namespace "spring-petclinic-development" \
                 --sync-policy "automated"
               argocd app list
@@ -395,7 +395,8 @@ jobs:
           KUBECONFIG: ((kubeconfig))
           MANIFEST: ((app_manifest))
           DOMAIN: ((domain))
-          K8S_CLUSTER_NAME: ((cluster))
+          CLUSTER_SERVER: ((cluster_server))
+          ARGOCD_PASSWORD: ((argocd_password))
 EOF
 }
 
@@ -412,28 +413,28 @@ function add_app() {
   source "${1}"
   echo "Adding ${APP_NAME}"
 
-  mkdir -p "${__DIR}/build/${APP_NAME}"
+  # mkdir -p "${__DIR}/build/${APP_NAME}"
 
-  echo "Creating kubernetes namespace for ${APP_NAME}"
-  create_namespace "${APP_NAME}"
+  # echo "Creating kubernetes namespace for ${APP_NAME}"
+  # create_namespace "${APP_NAME}"
 
-  create_secret_kpack
+  # create_secret_kpack
 
-  if [ -n "${DEPLOY_KEY}" ]; then
-    echo "Creating kpack secret for ${APP_NAME}-deploy-key"
-    kp secret create "${APP_NAME}-deploy-key" --git-url git@github.com --git-ssh-key "${DEPLOY_KEY}" -n "${APP_NAME}"
-  fi
+  # if [ -n "${DEPLOY_KEY}" ]; then
+  #   echo "Creating kpack secret for ${APP_NAME}-deploy-key"
+  #   kp secret create "${APP_NAME}-deploy-key" --git-url git@github.com --git-ssh-key "${DEPLOY_KEY}" -n "${APP_NAME}"
+  # fi
 
-  create_service_account_kpack
-  if ! kubectl get namespace "build-service" > /dev/null 2>&1; then
-    create_builder_kpack
-  fi
-  create_app_image_spec
-  install_role_binding
+  # create_service_account_kpack
+  # if ! kubectl get namespace "build-service" > /dev/null 2>&1; then
+  #   create_builder_kpack
+  # fi
+  # create_app_image_spec
+  # install_role_binding
   write_pipeline_params
   write_pipeline
 
-  yq e '.app_manifest' "${__DIR}/build/${APP_NAME}/${APP_NAME}-params.yml" > "${__DIR}/build/${APP_NAME}/manifest.yml"
+  # yq e '.app_manifest' "${__DIR}/build/${APP_NAME}/${APP_NAME}-params.yml" > "${__DIR}/build/${APP_NAME}/manifest.yml"
 
   echo "Deploying the pipeline to Concourse"
   if ! fly_pipeline; then
