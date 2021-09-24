@@ -390,6 +390,7 @@ jobs:
                 --dest-namespace "${APP_NAME}-development" \
                 --sync-policy "automated"
               argocd app list
+              printf "\nLogin to the ArgoCD UI at: https://%s\n" "argocd.\$DOMAIN"
           platform: linux
         params:
           KUBECONFIG: ((kubeconfig))
