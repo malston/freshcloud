@@ -384,7 +384,7 @@ jobs:
                 kubectl create namespace "${APP_NAME}-development"
               fi
               argocd app create "${APP_NAME}-dev" \
-                --repo "https://github.com/malston/tanzu-pipelines.git" \
+                --repo "${APP_DEPLOYMENT_REPO}" \
                 --path "argocd/${APP_NAME}/dev" \
                 --dest-server "\$CLUSTER_SERVER" \
                 --dest-namespace "${APP_NAME}-development" \
