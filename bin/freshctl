@@ -345,7 +345,7 @@ jobs:
           - |
             trivy --cache-dir trivy-cache fs --severity HIGH,CRITICAL --vuln-type library,os --ignore-unfixed --exit-code 1 ${APP_NAME}-image/rootfs
 
-  - name: register-${APP_NAME}
+  - name: deploy-${APP_NAME}
     plan:
       - get: ${APP_NAME}-source-code
       - get: ${APP_NAME}-kpack-image
@@ -377,7 +377,7 @@ jobs:
               export KUBECONFIG=config.yml
               # Add the config setup with the service account you created
               argocd login argocd.\$DOMAIN --username admin --password \$ARGOCD_PASSWORD
-              echo y | argocd cluster add "$K8S_CLUSTER_NAME-argocd-token-user@$K8S_CLUSTER_NAME" --kubeconfig config.yml --server "argocd.\$DOMAIN"
+              echo y | argocd cluster add "$K8S_CLUSTER_NAME-argocd-token-user@$K8S_CLUSTER_NAME" --kubeconfig config.yml --server "argocd.\$DOMAIN" --upsert
               # See the clusters added
               argocd cluster list
               if ! kubectl get namespace "${APP_NAME}-development" > /dev/null 2>&1; then
