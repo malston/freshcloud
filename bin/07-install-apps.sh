@@ -27,7 +27,7 @@ function install_argocli() {
 function configure_argocd() {
     login_argocd
     if ! argocd cluster list --server "argocd.$DOMAIN" >/dev/null 2>&1; then
-      register_cluster
+        register_cluster
     fi
 }
 
@@ -103,21 +103,21 @@ function main() {
     # shellcheck source=apps/${1}.sh
     # shellcheck disable=SC1091
     if [[ -f "$1" ]]; then
-      source "${1}" || die "Usage: $0 <path-to-app-manifest>"
+        source "${1}" || die "Usage: $0 <path-to-app-manifest>"
     fi
 
     install_argocli
     configure_argocd
 
     if [ -n "$APP_NAME" ]; then
-      while true; do
-          read -rp "Would you like to deploy $APP_NAME to production? " yn
-          case $yn in
-              [Yy]* ) create_app_production "$APP_NAME"; break;;
-              [Nn]* ) exit;;
-              * ) echo "Please answer yes or no.";;
-          esac
-      done
+        while true; do
+            read -rp "Would you like to deploy $APP_NAME to production? " yn
+            case $yn in
+                [Yy]* ) create_app_production "$APP_NAME"; break;;
+                [Nn]* ) exit;;
+                * ) echo "Please answer yes or no.";;
+            esac
+        done
     else
         create_guestbook_app
     fi
