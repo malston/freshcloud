@@ -389,7 +389,8 @@ jobs:
                 --dest-server "\$CLUSTER_SERVER" \
                 --dest-namespace "${APP_NAME}-development" \
                 --sync-policy "automated"
-              argocd app list
+              argocd app wait "${APP_NAME}-dev"
+              argocd app get "${APP_NAME}-dev"
               printf "\nLogin to the ArgoCD UI at: https://%s\n" "argocd.\$DOMAIN"
           platform: linux
         params:
