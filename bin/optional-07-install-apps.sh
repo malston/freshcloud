@@ -82,9 +82,8 @@ function create_app_production() {
       --repo "https://github.com/malston/tanzu-pipelines.git" \
       --path "argocd/$app/production" \
       --dest-server "$(kubectl config view -o jsonpath="{.clusters[?(@.name=='"$CLUSTER_NAME"')].cluster.server}")" \
-      --dest-namespace "$app-production" \
-      --sync-policy "automated"
-    argocd app list
+      --dest-namespace "$app-production"
+    argocd app wait "$app-prod"
     wait_for_loadbalancer "$app"
 }
 
@@ -111,7 +110,7 @@ function main() {
 
     if [ -n "$APP_NAME" ]; then
         while true; do
-            read -rp "Would you like to deploy $APP_NAME to production? " yn
+            read -rp "Would you like to deploy $APP_NAME to production [YyNn]? " yn
             case $yn in
                 [Yy]* ) create_app_production "$APP_NAME"; break;;
                 [Nn]* ) exit;;
