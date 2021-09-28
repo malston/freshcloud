@@ -100,11 +100,10 @@ fi
 
 tanzu_login "$MANAGEMENT_CLUSTER_NAME"
 
-temp_dir=$(mktemp -d -t cluster-XXXXXXXXXX)
-
 if [ "$1" == 'delete' ]; then
     tanzu_vsphere_delete_k8s_cluster "$2" "$3"
 else
+  temp_dir=$(mktemp -d -t cluster-XXXXXXXXXX)
   tanzu_vsphere_create_k8s_cluster "$temp_dir" "$@"
   echo
   echo "Once the cluster is created be sure to login using the vsphere plugin:"
