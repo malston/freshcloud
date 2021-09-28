@@ -83,7 +83,7 @@ function create_app_production() {
       --path "argocd/$app/production" \
       --dest-server "$(kubectl config view -o jsonpath="{.clusters[?(@.name=='"$CLUSTER_NAME"')].cluster.server}")" \
       --dest-namespace "$app-production"
-    argocd app wait "$app-prod"
+    argocd app sync "$app-prod" && argocd app wait "$app-prod"
     wait_for_loadbalancer "$app"
 }
 
