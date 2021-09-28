@@ -98,9 +98,9 @@ if [ -z "$MANAGEMENT_CLUSTER_NAME" ]; then
   exit 1
 fi
 
-# tanzu_login "$MANAGEMENT_CLUSTER_NAME"
+tanzu_login "$MANAGEMENT_CLUSTER_NAME"
 
-# temp_dir=$(mktemp -d -t cluster-XXXXXXXXXX)
+temp_dir=$(mktemp -d -t cluster-XXXXXXXXXX)
 
 if [ "$1" == 'delete' ]; then
     tanzu_vsphere_delete_k8s_cluster "$2" "$3"
